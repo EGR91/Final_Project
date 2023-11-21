@@ -1,0 +1,90 @@
+SELECT
+	t1.test_grp as test_grp,
+	t1.ARPU as ARPU,
+	t2.ARPAU as ARPAU,
+	t3.CR as CR,
+	t2.CR_AU as CR_AU,
+	t4.CR_MATH as CR_MATH
+FROM
+	(
+	SELECT 
+		test_grp, 
+		avg(rev) AS ARPU
+	FROM 
+		(
+		SELECT test_grp, a.st_id AS st_id, sum(money) AS rev
+		FROM studs a
+		LEFT JOIN final_project_check b
+		ON a.st_id = b.st_id
+		GROUP BY test_grp, st_id
+		) AS p
+	GROUP BY test_grp
+	) as t1
+LEFT JOIN
+	(
+	SELECT
+		test_grp,
+		avg(rev) AS ARPAU,
+		ROUND(uniqExactIf(c.st_id, notEmpty(c.st_id)) / COUNT(distinct a.st_id) * 100, 2) AS CR_AU
+	FROM 
+		(
+		SELECT st_id, sum(correct) AS corr_ans
+		FROM peas
+		GROUP BY st_id
+		HAVING corr_ans > 10
+		) AS a
+	LEFT JOIN
+		studs AS b
+			ON a.st_id = b.st_id
+	LEFT JOIN
+		(
+		SELECT st_id, sum(money) AS rev
+		FROM final_project_check b
+		GROUP BY st_id
+		) AS c
+			ON a.st_id = c.st_id
+	GROUP BY test_grp
+	) as t2
+ON t1.test_grp = t2.test_grp
+LEFT JOIN
+	(
+	SELECT
+		test_grp,
+		ROUND(uniqExactIf(b.st_id, notEmpty(b.st_id)) / COUNT(distinct a.st_id) * 100,2) AS CR
+	FROM 
+		studs AS a
+	LEFT JOIN
+		(
+		SELECT distinct st_id
+		FROM final_project_check b
+		) AS b
+			ON a.st_id = b.st_id
+	GROUP BY test_grp
+	) as t3
+ON t1.test_grp = t3.test_grp
+LEFT JOIN
+	(
+	SELECT
+		test_grp,
+		ROUND(uniqExactIf(c.st_id, notEmpty(c.st_id)) / COUNT(distinct a.st_id) * 100,2) AS CR_MATH
+	FROM 
+		(
+		SELECT st_id, sum(correct) AS corr_ans
+		FROM peas
+		WHERE subject = 'Math'
+		GROUP BY st_id
+		HAVING corr_ans >= 2
+		) AS a
+	LEFT JOIN
+		studs AS b
+			ON a.st_id = b.st_id
+	LEFT JOIN
+		(
+		SELECT distinct st_id
+		FROM final_project_check b
+		WHERE subject = 'Math'
+		) AS c
+			ON a.st_id = c.st_id
+	GROUP BY test_grp
+	) as t4
+ON t1.test_grp = t4.test_grp
